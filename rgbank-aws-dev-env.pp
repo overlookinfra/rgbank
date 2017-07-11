@@ -6,6 +6,7 @@ echo "<%= \$master_ip %> <%= \$master_address %> puppet" >> /etc/hosts
 /bin/yum makeache
 
 curl -k https://puppet:8140/packages/current/install.bash | bash -s \
+  agent:certname=<%= \$certname %> \
   extension_requests:pp_role=<%= \$role %> \
   extension_requests:pp_datacenter=AWS \
   extension_requests:pp_application=<%= \$application%> \
@@ -49,6 +50,7 @@ ec2_instance { "rgbank-development-${::branch}.aws.puppet.vm":
   user_data       => inline_epp( $epp_script, {
     'master_address' => $::puppet_master_address,
     'master_ip'      => $::puppet_master_ip,
+    'certname'       => "rgbank-development-${::branch}.aws.puppet.vm",
     'role'           => 'rgbank-development',
     'application'    => "Rgbank[${::branch}]",
     'environment'    => $::branch,
