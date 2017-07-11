@@ -89,6 +89,9 @@ node {
       //  Groovy 2.4 defaults to GString instead of String
       //    for interpolated strings. We need to convert to String
       app_name = "Rgbank[${env.BRANCH_NAME}]".toString()
+
+      //  Deploy the application to the feature development 
+      //    environment using the production Puppet code
       puppet.job 'production', application: app_name
     }
 
@@ -116,6 +119,7 @@ node {
         sh("/usr/bin/tar -czf rgbank-build-${version}.tar.gz -C src .")
       }
 
+      // Archive our artifacts in Jenkins and upload them to Artifactory
       archive "rgbank-build-${version}.tar.gz"
       archive "rgbank.sql"
       artifactoryServer.upload spec: buildUploadSpec
@@ -124,8 +128,12 @@ node {
 
     stage('Promote to staging') {
       input "Ready to deploy to staging?"
+
+      // Promote the application version to staging
       puppet.hiera scope: 'staging', key: 'rgbank-build-version', value: version
       puppet.hiera scope: 'staging', key: 'rgbank-build-source-type', value: 'artifactory'
+
+      // Deploy the application to staging using the production Puppet code
       puppet.job 'production', application: 'Rgbank[staging]'
     }
   
@@ -144,13 +152,21 @@ node {
     }
   
     stage('Noop production run') {
+      //  Promote the application version to production
       puppet.hiera scope: 'production', key: 'rgbank-build-version', value: version
       puppet.hiera scope: 'production', key: 'rgbank-build-source-type', value: 'artifactory'
-      puppet.job 'production', noop: true, application: 'Rgbank[production]'
+
+      //  Do a simulation run (noop) to the production instance of the application
+      //    to verify the changes are what's expected. Noop results can be seen
+      //    in the Puppet Enterprise web UI as well as from the Jenkins console.
+      //    Here we're selecting the "resourceChanges" report to print to the 
+      //    Jenkins console.
+      puppet.job 'production', noop: true, application: 'Rgbank[production]', reports: ['resourceChanges']
     }
   
     stage('Production canary deployment') {
       input "Approve for production canary deployment?"
+
       query = """inventory {
                   facts.trusted.extensions.pp_application = "rgbank" and
                   facts.trusted.extensions.pp_environment = "production" and
